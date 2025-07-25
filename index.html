@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Netflix System Design: How It Works Step-by-Step</title>
+    <title>Netflix System Design:</title>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -1351,20 +1351,7 @@
                             <h2 class="section-title">High-Level Architecture Overview</h2>
                             <p class="section-subtitle">Here is an easy understanding of the Netflix architecture that functions behind the scenes from the time when the play button is pressed until it reaches a smooth video playback on your screen.</p>
                         </div>
-                        <div class="section-content">
-                            <div class="architecture-diagram">
-                                <h3 class="diagram-title">Netflix System Architecture Flow</h3>
-                                <div class="diagram-flow">
-User Request → Load Balancer → API Gateway
-     ↓              ↓              ↓
-Authentication → User Profile → Content Service
-     ↓              ↓              ↓
-Recommendation Engine → Search Service → Video Streaming
-     ↓              ↓              ↓
-CDN (Open Connect) → Adaptive Streaming → User Device
-                                </div>
-                            </div>
-                        </div>
+                        
                     </div>
                 </section>
 
@@ -1379,9 +1366,9 @@ CDN (Open Connect) → Adaptive Streaming → User Device
                         </div>
                         <div class="section-content">
                             <div class="code-block">
-1. Users need to submit their email and password.
-2. Your credentials get checked through the Authentication Microservice by Netflix.
-3. Upon success, the system sends a secure JWT token as the digital access pass.
+1. Users need to submit their email and password.<br>
+2. Your credentials get checked through the Authentication Microservice by Netflix.<br>
+3. Upon success, the system sends a secure JWT token as the digital access pass.<br>
                             </div>
 
                             <h3><i class="fas fa-shield-alt"></i> Why It Matters?</h3>
@@ -1554,10 +1541,10 @@ CDN (Open Connect) → Adaptive Streaming → User Device
                         <div class="section-content">
                             <h3><i class="fas fa-play-circle"></i> Streaming Flow:</h3>
                             <div class="code-block">
-1. Playback Request: Routed via Load Balancer
-2. Device Detection: Phone? Smart TV? Browser?
-3. Network Speed Detection: Slow Wi-Fi? 5G?
-4. Adaptive Bitrate Streaming: Changes video quality on-the-fly
+1. Playback Request: Routed via Load Balancer<br>
+2. Device Detection: Phone? Smart TV? Browser?<br>
+3. Network Speed Detection: Slow Wi-Fi? 5G?<br>
+4. Adaptive Bitrate Streaming: Changes video quality on-the-fly<br>
                             </div>
 
                             <h3><i class="fas fa-video"></i> Video Versions:</h3>
