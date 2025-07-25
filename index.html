@@ -1,0 +1,2006 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Netflix System Design: How It Works Step-by-Step</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary: #6366f1;
+            --primary-dark: #4f46e5;
+            --secondary: #ec4899;
+            --accent: #10b981;
+            --warning: #f59e0b;
+            --danger: #ef4444;
+            
+            --text-primary: #1f2937;
+            --text-secondary: #6b7280;
+            --text-light: #9ca3af;
+            --text-white: #ffffff;
+            
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8fafc;
+            --bg-tertiary: #f1f5f9;
+            --bg-dark: #0f172a;
+            --bg-gradient: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            --bg-card: #ffffff;
+            
+            --border-light: #e2e8f0;
+            --border-medium: #cbd5e1;
+            --border-dark: #94a3b8;
+            
+            --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+            --shadow-xl: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            --shadow-2xl: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+            
+            --radius-sm: 0.375rem;
+            --radius-md: 0.5rem;
+            --radius-lg: 0.75rem;
+            --radius-xl: 1rem;
+            --radius-2xl: 1.5rem;
+            --radius-full: 9999px;
+            
+            --spacing-xs: 0.5rem;
+            --spacing-sm: 0.75rem;
+            --spacing-md: 1rem;
+            --spacing-lg: 1.5rem;
+            --spacing-xl: 2rem;
+            --spacing-2xl: 3rem;
+            --spacing-3xl: 4rem;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            scroll-behavior: smooth;
+            font-size: 16px;
+        }
+
+        body {
+            font-family: 'Poppins', -apple-system, BlinkMacSystemFont, sans-serif;
+            line-height: 1.7;
+            color: var(--text-primary);
+            background: var(--bg-primary);
+            overflow-x: hidden;
+            font-weight: 400;
+        }
+
+        /* Utility Classes */
+        .container {
+            max-width: 1280px;
+            margin: 0 auto;
+            padding: 0 var(--spacing-lg);
+        }
+
+        .container-sm {
+            max-width: 768px;
+            margin: 0 auto;
+            padding: 0 var(--spacing-lg);
+        }
+
+        .text-center { text-align: center; }
+        .text-left { text-align: left; }
+        .text-right { text-align: right; }
+
+        .font-light { font-weight: 300; }
+        .font-normal { font-weight: 400; }
+        .font-medium { font-weight: 500; }
+        .font-semibold { font-weight: 600; }
+        .font-bold { font-weight: 700; }
+        .font-extrabold { font-weight: 800; }
+
+        .text-xs { font-size: 0.75rem; }
+        .text-sm { font-size: 0.875rem; }
+        .text-base { font-size: 1rem; }
+        .text-lg { font-size: 1.125rem; }
+        .text-xl { font-size: 1.25rem; }
+        .text-2xl { font-size: 1.5rem; }
+        .text-3xl { font-size: 1.875rem; }
+        .text-4xl { font-size: 2.25rem; }
+        .text-5xl { font-size: 3rem; }
+
+        .mb-2 { margin-bottom: var(--spacing-sm); }
+        .mb-4 { margin-bottom: var(--spacing-md); }
+        .mb-6 { margin-bottom: var(--spacing-lg); }
+        .mb-8 { margin-bottom: var(--spacing-xl); }
+        .mt-8 { margin-top: var(--spacing-xl); }
+        .py-8 { padding: var(--spacing-xl) 0; }
+        .py-12 { padding: var(--spacing-2xl) 0; }
+        .py-16 { padding: var(--spacing-3xl) 0; }
+
+        /* Header */
+        .header {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            z-index: 50;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--border-light);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .header.scrolled {
+            background: rgba(255, 255, 255, 0.98);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .nav {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 5rem;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            font-weight: 800;
+            font-size: 1.5rem;
+            color: var(--primary);
+            text-decoration: none;
+            transition: transform 0.2s ease;
+        }
+
+        .logo:hover {
+            transform: scale(1.05);
+        }
+
+        .logo-icon {
+            width: 2.5rem;
+            height: 2.5rem;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.25rem;
+            box-shadow: var(--shadow-md);
+        }
+
+        .nav-links {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-2xl);
+            list-style: none;
+        }
+
+        .nav-link {
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+            position: relative;
+            padding: var(--spacing-sm) 0;
+        }
+
+        .nav-link:hover,
+        .nav-link.active {
+            color: var(--primary);
+        }
+
+        .nav-link.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            border-radius: var(--radius-full);
+        }
+
+        .mobile-menu-btn {
+            display: none;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: var(--spacing-sm);
+            border-radius: var(--radius-md);
+            transition: background-color 0.2s ease;
+        }
+
+        .mobile-menu-btn:hover {
+            background-color: var(--bg-secondary);
+        }
+
+        .hamburger {
+            width: 1.5rem;
+            height: 1.5rem;
+            position: relative;
+        }
+
+        .hamburger span {
+            display: block;
+            width: 100%;
+            height: 2px;
+            background: var(--text-primary);
+            border-radius: var(--radius-full);
+            transition: all 0.3s ease;
+            position: absolute;
+        }
+
+        .hamburger span:nth-child(1) { top: 0; }
+        .hamburger span:nth-child(2) { top: 50%; transform: translateY(-50%); }
+        .hamburger span:nth-child(3) { bottom: 0; }
+
+        /* Hero Section */
+        .hero {
+            padding: 8rem 0 6rem;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse"><path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(255,255,255,0.1)" stroke-width="1"/></pattern></defs><rect width="100" height="100" fill="url(%23grid)"/></svg>');
+        }
+
+        .hero-content {
+            position: relative;
+            z-index: 1;
+            text-align: center;
+            color: white;
+        }
+
+        .hero-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            background: rgba(255, 255, 255, 0.15);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: var(--radius-full);
+            padding: var(--spacing-sm) var(--spacing-lg);
+            margin-bottom: var(--spacing-xl);
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+
+        .hero-badge-dot {
+            width: 0.5rem;
+            height: 0.5rem;
+            background: var(--accent);
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.7; transform: scale(1.1); }
+        }
+
+        .hero h1 {
+            font-size: clamp(2.5rem, 5vw, 4.5rem);
+            font-weight: 800;
+            line-height: 1.1;
+            margin-bottom: var(--spacing-lg);
+            text-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        .hero-subtitle {
+            font-size: 1.25rem;
+            opacity: 0.9;
+            margin-bottom: var(--spacing-2xl);
+            max-width: 42rem;
+            margin-left: auto;
+            margin-right: auto;
+            line-height: 1.6;
+        }
+
+        .hero-stats {
+            display: flex;
+            justify-content: center;
+            gap: var(--spacing-2xl);
+            margin-bottom: var(--spacing-2xl);
+            flex-wrap: wrap;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            border-radius: var(--radius-xl);
+            padding: var(--spacing-lg);
+            text-align: center;
+            min-width: 120px;
+            transition: transform 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+        }
+
+        .stat-number {
+            display: block;
+            font-size: 2rem;
+            font-weight: 800;
+            line-height: 1;
+            margin-bottom: var(--spacing-xs);
+        }
+
+        .stat-label {
+            font-size: 0.875rem;
+            opacity: 0.8;
+        }
+
+        .hero-cta {
+            display: flex;
+            justify-content: center;
+            gap: var(--spacing-lg);
+            flex-wrap: wrap;
+        }
+
+        /* Buttons */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+            padding: var(--spacing-md) var(--spacing-xl);
+            border-radius: var(--radius-lg);
+            font-weight: 600;
+            font-size: 0.95rem;
+            text-decoration: none;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            border: none;
+            outline: none;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .btn::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            transition: left 0.5s ease;
+        }
+
+        .btn:hover::before {
+            left: 100%;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            box-shadow: var(--shadow-lg);
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-xl);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            backdrop-filter: blur(10px);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.2);
+            border-color: rgba(255, 255, 255, 0.5);
+        }
+
+        /* Progress Bar */
+        .progress-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 0%;
+            height: 3px;
+            background: linear-gradient(90deg, var(--primary), var(--secondary));
+            z-index: 100;
+            transition: width 0.1s ease;
+        }
+
+        /* Table of Contents */
+        .toc-section {
+            padding: var(--spacing-3xl) 0;
+            background: var(--bg-secondary);
+            position: relative;
+        }
+        .toc-header {
+            text-align: center;
+            margin-bottom: var(--spacing-2xl);
+        }
+        .toc-title {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--text-primary);
+            margin-bottom: var(--spacing-md);
+        }
+        .toc-subtitle {
+            font-size: 1.125rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto var(--spacing-2xl);
+            line-height: 1.6;
+        }
+        .toc-intro-text { /* New style for the introductory paragraph */
+            font-size: 1rem;
+            color: var(--text-secondary);
+            max-width: 700px;
+            margin: var(--spacing-xl) auto var(--spacing-2xl);
+            line-height: 1.7;
+            text-align: center;
+        }
+        .toc-list { /* New container for list items */
+            display: flex;
+            flex-direction: column;
+            gap: var(--spacing-md); /* Gap between list items */
+            max-width: 800px; /* Constrain width for better readability */
+            margin: 0 auto;
+            padding: var(--spacing-lg); /* Padding around the list */
+            background: var(--bg-card);
+            border-radius: var(--radius-2xl);
+            box-shadow: var(--shadow-lg); /* Prominent shadow for the whole block */
+            border: 1px solid var(--border-light);
+        }
+        .toc-item { /* Individual list item */
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-lg);
+            padding: var(--spacing-md) var(--spacing-lg);
+            border-radius: var(--radius-lg);
+            text-decoration: none;
+            color: var(--text-primary);
+            transition: all 0.2s ease-in-out;
+            position: relative;
+            overflow: hidden;
+        }
+        .toc-item::before { /* Left border/indicator */
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 4px;
+            height: 100%;
+            background: var(--border-light); /* Default subtle line */
+            transition: background 0.2s ease-in-out;
+        }
+        .toc-item:hover {
+            background: var(--bg-tertiary); /* Light background on hover */
+            transform: translateX(5px); /* Slight movement on hover */
+        }
+        .toc-item:hover::before {
+            background: linear-gradient(to bottom, var(--primary), var(--secondary)); /* Gradient on hover */
+        }
+        .toc-item.active { /* Active state */
+            background: var(--bg-tertiary);
+            font-weight: 600;
+            color: var(--primary-dark);
+        }
+        .toc-item.active::before {
+            background: linear-gradient(to bottom, var(--primary), var(--secondary)); /* Strong gradient for active */
+        }
+        .toc-item-number {
+            width: 2.2rem;
+            height: 2.2rem;
+            background: var(--bg-tertiary); /* Lighter background for number */
+            color: var(--primary);
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.9rem;
+            flex-shrink: 0;
+            border: 1px solid var(--border-medium);
+            transition: all 0.2s ease-in-out;
+        }
+        .toc-item:hover .toc-item-number,
+        .toc-item.active .toc-item-number {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: var(--text-white);
+            border-color: var(--primary);
+            transform: scale(1.05);
+        }
+        .toc-item-content {
+            flex-grow: 1;
+        }
+        .toc-item-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin: 0;
+            line-height: 1.4;
+        }
+        .toc-item-description {
+            font-size: 0.85rem;
+            color: var(--text-secondary);
+            margin-top: var(--spacing-xs);
+            line-height: 1.5;
+        }
+
+        /* Main Content */
+        .main-content {
+            padding: var(--spacing-3xl) 0;
+        }
+
+        .content-section {
+            margin-bottom: var(--spacing-3xl);
+            opacity: 0;
+            transform: translateY(2rem);
+            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .content-section.revealed { /* Changed from .visible to .revealed */
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        .section-card {
+            background: var(--bg-card);
+            border-radius: var(--radius-2xl);
+            box-shadow: var(--shadow-lg);
+            overflow: hidden;
+            border: 1px solid var(--border-light);
+            transition: box-shadow 0.3s ease;
+        }
+
+        .section-card:hover {
+            box-shadow: var(--shadow-xl);
+        }
+
+        .section-header {
+            background: linear-gradient(135deg, var(--primary) 0%, var(--secondary) 100%);
+            color: white;
+            padding: var(--spacing-2xl);
+            position: relative;
+        }
+
+        .section-header::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+        }
+
+        .section-meta {
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .step-badge {
+            background: rgba(255, 255, 255, 0.2);
+            backdrop-filter: blur(10px);
+            padding: var(--spacing-sm) var(--spacing-md);
+            border-radius: var(--radius-full);
+            font-size: 0.875rem;
+            font-weight: 600;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .section-title {
+            font-size: 2rem;
+            font-weight: 700;
+            margin-bottom: var(--spacing-sm);
+            line-height: 1.2;
+        }
+
+        .section-subtitle {
+            font-size: 1.125rem;
+            opacity: 0.9;
+            line-height: 1.6;
+        }
+
+        .section-content {
+            padding: var(--spacing-2xl);
+        }
+
+        .section-content h3 {
+            font-size: 1.375rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin: var(--spacing-xl) 0 var(--spacing-md);
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+
+        .section-content h4 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--primary);
+            margin: var(--spacing-lg) 0 var(--spacing-sm);
+        }
+
+        .section-content p {
+            margin-bottom: var(--spacing-md);
+            line-height: 1.7;
+            color: var(--text-secondary);
+        }
+
+        .section-content ul,
+        .section-content ol {
+            margin: var(--spacing-md) 0;
+            padding-left: var(--spacing-xl);
+        }
+
+        .section-content li {
+            margin: var(--spacing-sm) 0;
+            line-height: 1.6;
+            color: var(--text-secondary);
+        }
+
+        .section-content strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        /* Tables */
+        .table-container {
+            margin: var(--spacing-xl) 0;
+            border-radius: var(--radius-xl);
+            overflow: hidden;
+            box-shadow: var(--shadow-md);
+            border: 1px solid var(--border-light);
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            background: var(--bg-card);
+        }
+
+        .data-table th {
+            background: linear-gradient(135deg, var(--bg-dark) 0%, #1e293b 100%);
+            color: white;
+            padding: var(--spacing-lg);
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.9rem;
+            border-bottom: 1px solid var(--border-medium);
+        }
+
+        .data-table td {
+            padding: var(--spacing-lg);
+            border-bottom: 1px solid var(--border-light);
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        .data-table tr:last-child td {
+            border-bottom: none;
+        }
+
+        .data-table tr:hover {
+            background: var(--bg-secondary);
+        }
+
+        .data-table td strong {
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+
+        /* Code Blocks */
+        .code-block {
+            background: var(--bg-dark);
+            color: #e2e8f0;
+            padding: var(--spacing-xl);
+            border-radius: var(--radius-xl);
+            font-family: 'Fira Code', 'Consolas', 'Monaco', monospace;
+            font-size: 0.9rem;
+            line-height: 1.7;
+            overflow-x: auto;
+            margin: var(--spacing-xl) 0;
+            border-left: 4px solid var(--primary);
+            box-shadow: var(--shadow-md);
+        }
+
+        /* Highlight Boxes */
+        .highlight-box {
+            background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(236, 72, 153, 0.05) 100%);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-left: 4px solid var(--primary);
+            border-radius: var(--radius-xl);
+            padding: var(--spacing-xl);
+            margin: var(--spacing-xl) 0;
+        }
+
+        .highlight-box h4 {
+            color: var(--primary);
+            margin-bottom: var(--spacing-md);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: var(--spacing-sm);
+        }
+
+        .highlight-box p {
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .highlight-box ul {
+            margin-top: var(--spacing-sm);
+        }
+
+        /* Info Boxes */
+        .info-box {
+            display: flex;
+            gap: var(--spacing-md);
+            padding: var(--spacing-xl);
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-xl);
+            margin: var(--spacing-xl) 0;
+            border-left: 4px solid var(--accent);
+        }
+
+        .info-icon {
+            width: 2.5rem;
+            height: 2.5rem;
+            background: var(--accent);
+            color: white;
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.125rem;
+            flex-shrink: 0;
+            box-shadow: var(--shadow-md);
+        }
+
+        .info-content p {
+            margin: 0;
+            color: var(--text-secondary);
+        }
+
+        /* Architecture Diagram */
+        .architecture-diagram {
+            background: var(--bg-tertiary);
+            border: 2px dashed var(--border-medium);
+            border-radius: var(--radius-2xl);
+            padding: var(--spacing-2xl);
+            text-align: center;
+            margin: var(--spacing-xl) 0;
+        }
+
+        .diagram-title {
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .diagram-flow {
+            font-family: 'Fira Code', monospace;
+            font-size: 0.9rem;
+            line-height: 1.8;
+            color: var(--text-secondary);
+            background: var(--bg-card);
+            padding: var(--spacing-xl);
+            border-radius: var(--radius-lg);
+            display: inline-block;
+            text-align: left;
+            box-shadow: var(--shadow-sm);
+        }
+
+        /* FAQ Section */
+        .faq-section {
+            background: var(--bg-secondary);
+            padding: var(--spacing-3xl) 0;
+        }
+
+        .faq-header {
+            text-align: center;
+            margin-bottom: var(--spacing-2xl);
+        }
+
+        .faq-title {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--text-primary);
+            margin-bottom: var(--spacing-md);
+        }
+
+        .faq-subtitle {
+            font-size: 1.125rem;
+            color: var(--text-secondary);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .faq-container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+
+        .faq-item {
+            background: var(--bg-card);
+            border-radius: var(--radius-xl);
+            margin-bottom: var(--spacing-md);
+            box-shadow: var(--shadow-md);
+            overflow: hidden;
+            border: 1px solid var(--border-light);
+            transition: all 0.3s ease;
+        }
+
+        .faq-item:hover {
+            box-shadow: var(--shadow-lg);
+        }
+
+        .faq-question {
+            padding: var(--spacing-xl);
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: background-color 0.3s ease;
+        }
+
+        .faq-question:hover {
+            background: var(--bg-secondary);
+        }
+
+        .faq-question h3 {
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin: 0;
+            flex: 1;
+        }
+
+        .faq-toggle {
+            width: 2.5rem;
+            height: 2.5rem;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border-radius: var(--radius-lg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 1.125rem;
+            transition: all 0.3s ease;
+            box-shadow: var(--shadow-sm);
+        }
+
+        .faq-item.active .faq-toggle {
+            transform: rotate(45deg);
+            background: linear-gradient(135deg, var(--danger), var(--warning));
+        }
+
+        .faq-answer {
+            padding: 0 var(--spacing-xl);
+            max-height: 0;
+            overflow: hidden;
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .faq-answer.active {
+            padding: 0 var(--spacing-xl) var(--spacing-xl);
+            max-height: 15rem; /* Increased for potentially longer answers */
+        }
+
+        .faq-answer p {
+            color: var(--text-secondary);
+            line-height: 1.7;
+            margin: 0;
+        }
+
+        /* Footer */
+        .footer {
+            background: var(--bg-dark);
+            color: white;
+            padding: var(--spacing-3xl) 0 var(--spacing-xl);
+        }
+
+        .footer-content {
+            text-align: center;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .footer-logo {
+            font-size: 1.75rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: var(--spacing-md);
+        }
+
+        .footer-text {
+            color: #94a3b8;
+            margin-bottom: var(--spacing-xl);
+            line-height: 1.6;
+        }
+
+        .footer-links {
+            display: flex;
+            justify-content: center;
+            gap: var(--spacing-xl);
+            margin-bottom: var(--spacing-xl);
+            flex-wrap: wrap;
+        }
+
+        .footer-links a {
+            color: #94a3b8;
+            text-decoration: none;
+            font-weight: 500;
+            transition: color 0.3s ease;
+        }
+
+        .footer-links a:hover {
+            color: var(--primary);
+        }
+
+        .footer-copyright {
+            color: #64748b;
+            font-size: 0.875rem;
+        }
+
+        /* Back to Top Button */
+        #backToTopBtn {
+            display: none;
+            position: fixed;
+            bottom: var(--spacing-xl);
+            right: var(--spacing-xl);
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            color: white;
+            border: none;
+            border-radius: var(--radius-full);
+            width: 3.5rem;
+            height: 3.5rem;
+            font-size: 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: var(--shadow-lg);
+            transition: opacity 0.3s ease, transform 0.3s ease;
+            z-index: 90;
+        }
+        #backToTopBtn:hover {
+            transform: translateY(-5px) scale(1.05);
+            box-shadow: var(--shadow-xl);
+        }
+
+        /* Responsive Design */
+        @media (max-width: 1024px) {
+            .container {
+                padding: 0 var(--spacing-md);
+            }
+            
+            .hero-stats {
+                gap: var(--spacing-lg);
+            }
+            
+            .toc-list {
+                padding: var(--spacing-md);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .nav-links {
+                display: none;
+                position: absolute;
+                top: 100%;
+                left: 0;
+                right: 0;
+                background: var(--bg-card);
+                border-top: 1px solid var(--border-light);
+                flex-direction: column;
+                padding: var(--spacing-md);
+                gap: var(--spacing-md);
+                box-shadow: var(--shadow-lg);
+            }
+            .nav-links.active {
+                display: flex;
+            }
+            .mobile-menu-btn {
+                display: block;
+            }
+            .hero {
+                padding: 6rem 0 4rem;
+            }
+            .hero h1 {
+                font-size: 2.5rem;
+            }
+            .hero-subtitle {
+                font-size: 1.125rem;
+            }
+            .hero-stats {
+                flex-direction: column;
+                gap: var(--spacing-md);
+                align-items: center;
+            }
+            .hero-cta {
+                flex-direction: column;
+                align-items: center;
+            }
+            .section-header {
+                padding: var(--spacing-xl);
+            }
+            .section-content {
+                padding: var(--spacing-xl);
+            }
+            .section-title {
+                font-size: 1.5rem;
+            }
+            .data-table th,
+            .data-table td {
+                padding: var(--spacing-md);
+                font-size: 0.8125rem;
+            }
+            .footer-links {
+                flex-direction: column;
+                gap: var(--spacing-md);
+            }
+            #backToTopBtn {
+                bottom: var(--spacing-md);
+                right: var(--spacing-md);
+                width: 3rem;
+                height: 3rem;
+                font-size: 1.2rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 0 var(--spacing-sm);
+            }
+            .hero {
+                padding: 5rem 0 3rem;
+            }
+            .section-header,
+            .section-content {
+                padding: var(--spacing-md);
+            }
+            .toc-section {
+                padding: var(--spacing-xl) 0;
+            }
+            .main-content {
+                padding: var(--spacing-xl) 0;
+            }
+            .data-table th,
+            .data-table td {
+                padding: var(--spacing-sm);
+            }
+        }
+
+        /* Animations */
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(2rem);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .animate-fade-in {
+            animation: fadeInUp 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+        }
+
+        /* Scroll Animations */
+        .scroll-reveal {
+            opacity: 0;
+            transform: translateY(2rem);
+            transition: all 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .scroll-reveal.revealed {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        ::-webkit-scrollbar-track {
+            background: var(--bg-secondary);
+        }
+
+        ::-webkit-scrollbar-thumb {
+            background: linear-gradient(135deg, var(--primary), var(--secondary));
+            border-radius: var(--radius-full);
+        }
+
+        ::-webkit-scrollbar-thumb:hover {
+            background: linear-gradient(135deg, var(--primary-dark), var(--secondary));
+        }
+    </style>
+</head>
+<body>
+    <div class="progress-bar" id="progressBar"></div>
+    
+    <header class="header" id="header">
+        <nav class="nav container">
+            <a href="#" class="logo">
+                <div class="logo-icon">
+                    <i class="fas fa-play"></i>
+                </div>
+                Netflix Design
+            </a>
+            <ul class="nav-links" id="navLinks">
+                <li><a href="#overview-section" class="nav-link">Overview</a></li>
+                <li><a href="#high-level-architecture" class="nav-link">Architecture</a></li>
+                <li><a href="#microservices-section" class="nav-link">Microservices</a></li>
+                <li><a href="#streaming-engine" class="nav-link">Streaming</a></li>
+                <li><a href="#open-connect" class="nav-link">CDN</a></li>
+                <li><a href="#cloud-hosting" class="nav-link">Cloud</a></li>
+                <li><a href="#faqs" class="nav-link">FAQs</a></li>
+            </ul>
+            <button class="mobile-menu-btn" id="mobileMenuBtn">
+                <div class="hamburger">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </div>
+            </button>
+        </nav>
+    </header>
+
+    <main>
+        <section class="hero">
+            <div class="container">
+                <div class="hero-content">
+                    <div class="hero-badge">
+                        <div class="hero-badge-dot"></div>
+                        System Architecture Deep Dive
+                    </div>
+                    <h1>Netflix System Design: How It Works Step-by-Step</h1>
+                    <p class="hero-subtitle">
+                        Discover the extraordinary architecture behind the world's largest streaming platform that serves 283+ million users globally without interruption.
+                    </p>
+                    
+                    <div class="hero-cta">
+                        <a href="#table-of-contents" class="btn btn-primary">
+                            <i class="fas fa-rocket"></i>
+                            Start Reading
+                        </a>
+                        <a href="#high-level-architecture" class="btn btn-secondary">
+                            <i class="fas fa-sitemap"></i>
+                            View Architecture
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="table-of-contents" class="toc-section scroll-reveal">
+            <div class="container-sm">
+                <div class="toc-header">
+                    <h2 class="toc-title">Table of Contents</h2>
+                    <p class="toc-subtitle">Navigate through the steps of Netflix's powerful system design.</p>
+                </div>
+                <p class="toc-intro-text">
+                    Do you ever think about how Netflix delivers your favorite shows without any interruption during the peak hours? Or how it can predict what you may want to watch next? If you think of these questions, then this blog is just for you. It provides an overview of the Netflix system design – a thing built on high-performance, scalability, and personalization. The guide given below is clear, easy to follow, and does not have a lot of fluff and frills while explaining each step. So, let's get started!
+                </p>
+                <div class="toc-list">
+                    <a href="#overview-section" class="toc-item">
+                        <div class="toc-item-number">1</div>
+                        <div class="toc-item-content">
+                            <h3 class="toc-item-title">What Is Netflix?</h3>
+                            <p class="toc-item-description">Introduction to Netflix and its global scale.</p>
+                        </div>
+                    </a>
+                    <a href="#high-level-architecture" class="toc-item">
+                        <div class="toc-item-number">2</div>
+                        <div class="toc-item-content">
+                            <h3 class="toc-item-title">High-Level Architecture Overview</h3>
+                            <p class="toc-item-description">An easy understanding of the Netflix architecture flow.</p>
+                        </div>
+                    </a>
+                    <a href="#user-authentication" class="toc-item">
+                        <div class="toc-item-number">3</div>
+                        <div class="toc-item-content">
+                            <h3 class="toc-item-title">User Authentication (Login Flow)</h3>
+                            <p class="toc-item-description">How users log in securely and manage sessions.</p>
+                        </div>
+                    </a>
+                    <a href="#microservices-section" class="toc-item">
+                        <div class="toc-item-number">4</div>
+                        <div class="toc-item-content">
+                            <h3 class="toc-item-title">Microservices Architecture</h3>
+                            <p class="toc-item-description">Understanding Netflix's distributed service approach.</p>
+                        </div>
+                    </a>
+                    <a href="#data-model" class="toc-item">
+                        <div class="toc-item-number">5</div>
+                        <div class="toc-item-content">
+                            <h3 class="toc-item-title">Data Model (The Backbone of Netflix)</h3>
+                            <p class="toc-item-description">Where all the crucial user and content data is stored.</p>
+                        </div>
+                    </a>
+                    <a href="#recommendation-engine" class="toc-item">
+                        <div class="toc-item-number">6</div>
+                        <div class="toc-item-content">
+                            <h3 class="toc-item-title">Personalized Recommendation Engine</h3>
+                            <p class="toc-item-description">How Netflix suggests content tailored to you.</p>
+                        </div>
+                    </a>
+                    <a href="#smart-search-system" class="toc-item">
+                        <div class="toc-item-number">7</div>
+                        <div class="toc-item-content">
+                            <h3 class="toc-item-title">Smart Search System</h3>
+                            <p class="toc-item-description">Features like autocomplete, typo tolerance, and personalized results.</p>
+                        </div>
+                    </a>
+                    <a href="#streaming-engine" class="toc-item">
+                        <div class="toc-item-number">8</div>
+                        <div class="toc-item-content">
+                            <h3 class="toc-item-title">Video Streaming Engine</h3>
+                            <p class="toc-item-description">Adaptive and efficient video delivery processes.</p>
+                        </div>
+                    </a>
+                    <a href="#open-connect" class="toc-item">
+                        <div class="toc-item-number">9</div>
+                        <div class="toc-item-content">
+                            <h3 class="toc-item-title">Open Connect – Netflix's Private CDN</h3>
+                            <p class="toc-item-description">How Netflix optimizes content delivery globally.</p>
+                        </div>
+                    </a>
+                    <a href="#cloud-hosting" class="toc-item">
+                        <div class="toc-item-number">10</div>
+                        <div class="toc-item-content">
+                            <h3 class="toc-item-title">Cloud Hosting (AWS)</h3>
+                            <p class="toc-item-description">Netflix's reliance on Amazon Web Services.</p>
+                        </div>
+                    </a>
+                    <a href="#digital-rights-management" class="toc-item">
+                        <div class="toc-item-number">11</div>
+                        <div class="toc-item-content">
+                            <h3 class="toc-item-title">Digital Rights Management (DRM)</h3>
+                            <p class="toc-item-description">Protecting copyrighted content from unauthorized access.</p>
+                        </div>
+                    </a>
+                    <a href="#monitoring-chaos" class="toc-item">
+                        <div class="toc-item-number">12</div>
+                        <div class="toc-item-content">
+                            <h3 class="toc-item-title">Monitoring & Chaos Engineering</h3>
+                            <p class="toc-item-description">Ensuring system reliability under stress.</p>
+                        </div>
+                    </a>
+                    <a href="#tech-stack" class="toc-item">
+                        <div class="toc-item-number">13</div>
+                        <div class="toc-item-content">
+                            <h3 class="toc-item-title">Optional Technologies Used</h3>
+                            <p class="toc-item-description">A complete overview of Netflix's technology stack.</p>
+                        </div>
+                    </a>
+                    <a href="#conclusion" class="toc-item">
+                        <div class="toc-item-number">14</div>
+                        <div class="toc-item-content">
+                            <h3 class="toc-item-title">Why Netflix's System is Extraordinary</h3>
+                            <p class="toc-item-description">Summary of Netflix's architectural strengths.</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <div class="main-content">
+            <div class="container">
+                <section id="overview-section" class="content-section">
+                    <div class="section-card">
+                        <div class="section-header">
+                            <div class="section-meta">
+                                <div class="step-badge">Introduction</div>
+                            </div>
+                            <h2 class="section-title">What Is Netflix?</h2>
+                            <p class="section-subtitle">Netflix is the world's largest video store, which never closes, and is accessible online.</p>
+                        </div>
+                        <div class="section-content">
+                            <p>Do you know - More than <strong>283 million clients</strong> in the third quarter of 2023, as per Statista, from various parts of the world, used it to:</p>
+                            
+                            <ul>
+                                <li>Log in to their profile</li>
+                                <li>Watch videos</li>
+                                <li>Search for content</li>
+                                <li>Get personalized recommendations</li>
+                                <li>Switch devices seamlessly</li>
+                            </ul>
+
+                            <div class="highlight-box">
+                                <h4><i class="fas fa-bolt"></i> All this needs to happen:</h4>
+                                <ul>
+                                    <li>In real-time</li>
+                                    <li>Without buffering</li>
+                                    <li>With secure access</li>
+                                    <li>Across multiple devices and internet speeds</li>
+                                </ul>
+                            </div>
+
+                            <p>So, how does Netflix achieve this? To answer this question, let's understand its complete architecture step-by-step:</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="high-level-architecture" class="content-section">
+                    <div class="section-card">
+                        <div class="section-header">
+                            <div class="section-meta">
+                                <div class="step-badge">Step 1</div>
+                            </div>
+                            <h2 class="section-title">High-Level Architecture Overview</h2>
+                            <p class="section-subtitle">Here is an easy understanding of the Netflix architecture that functions behind the scenes from the time when the play button is pressed until it reaches a smooth video playback on your screen.</p>
+                        </div>
+                        <div class="section-content">
+                            <div class="architecture-diagram">
+                                <h3 class="diagram-title">Netflix System Architecture Flow</h3>
+                                <div class="diagram-flow">
+User Request → Load Balancer → API Gateway
+     ↓              ↓              ↓
+Authentication → User Profile → Content Service
+     ↓              ↓              ↓
+Recommendation Engine → Search Service → Video Streaming
+     ↓              ↓              ↓
+CDN (Open Connect) → Adaptive Streaming → User Device
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="user-authentication" class="content-section">
+                    <div class="section-card">
+                        <div class="section-header">
+                            <div class="section-meta">
+                                <div class="step-badge">Step 2</div>
+                            </div>
+                            <h2 class="section-title">User Authentication (Login Flow)</h2>
+                            <p class="section-subtitle">The first time you start using Netflix, this is the following sequence of events takes place.</p>
+                        </div>
+                        <div class="section-content">
+                            <div class="code-block">
+1. Users need to submit their email and password.
+2. Your credentials get checked through the Authentication Microservice by Netflix.
+3. Upon success, the system sends a secure JWT token as the digital access pass.
+                            </div>
+
+                            <h3><i class="fas fa-shield-alt"></i> Why It Matters?</h3>
+                            <ul>
+                                <li>Your personal information, together with your watching history, remains protected.</li>
+                                <li>Token-based authentication prevents multiple login requirements between different devices during the process.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="microservices-section" class="content-section">
+                    <div class="section-card">
+                        <div class="section-header">
+                            <div class="section-meta">
+                                <div class="step-badge">Step 3</div>
+                            </div>
+                            <h2 class="section-title">Microservices</h2>
+                            <p class="section-subtitle">The Netflix infrastructure consists of various individual services instead of running one massive application. It uses Microservices Architecture.</p>
+                        </div>
+                        <div class="section-content">
+                            <h3><i class="fas fa-cubes"></i> What Are Microservices?</h3>
+                            <p>Software design using microservices creates applications through separate, small functional services that function independently. Every service handles a singular operational process either for user authentication, payment processing or content recommendation management.</p>
+
+                            <h3><i class="fas fa-cogs"></i> Key Netflix Microservices:</h3>
+                            <ul>
+                                <li><strong>AuthService:</strong> Login & session management</li>
+                                <li><strong>UserProfileService:</strong> Viewing history, preferences</li>
+                                <li><strong>RecommendationService:</strong> Function suggests next viewing recommendations</li>
+                                <li><strong>SearchService:</strong> Powers the search bar</li>
+                                <li><strong>PlaybackService:</strong> Manages video playback</li>
+                                <li><strong>BillingService:</strong> Payments and subscription</li>
+                            </ul>
+
+                            <div class="highlight-box">
+                                <h4><i class="fas fa-check-circle"></i> Benefits:</h4>
+                                <ul>
+                                    <li>Single service failures do not affect other operational services</li>
+                                    <li>Each part of the system can be independently scaled according to demand requirements</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="data-model" class="content-section">
+                    <div class="section-card">
+                        <div class="section-header">
+                            <div class="section-meta">
+                                <div class="step-badge">Step 4</div>
+                            </div>
+                            <h2 class="section-title">Data Model (The Backbone of Netflix)</h2>
+                            <p class="section-subtitle">You can imagine it as a huge, systematically arranged notebook where all necessary and relevant information about users, videos, subscriptions and one's preferences in watching movies is stored.</p>
+                        </div>
+                        <div class="section-content">
+                            <p>Since you know how Netflix manages its microservices for various parts of its platform, you may ask: "Where is all this information actually stored?" That is where data modelling comes into play.</p>
+
+                            <div class="table-container">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Table Name</th>
+                                            <th>What It Stores</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td><strong>Users</strong></td>
+                                            <td>Your name, email, birthdate, location, and login info</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Subscription Plan</strong></td>
+                                            <td>Your plan type, payment details, and active period</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Video Library</strong></td>
+                                            <td>All movies and shows, their titles, descriptions, and video links</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Watch History / Views</strong></td>
+                                            <td>What you watched, when you watched, and on which device</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Tags</strong></td>
+                                            <td>Genres and keywords linked to videos (e.g., "Action", "Drama")</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Comments / Reviews</strong></td>
+                                            <td>User-written feedback and reviews for shows or movies</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="recommendation-engine" class="content-section">
+                    <div class="section-card">
+                        <div class="section-header">
+                            <div class="section-meta">
+                                <div class="step-badge">Step 5</div>
+                            </div>
+                            <h2 class="section-title">Personalized Recommendation Engine</h2>
+                            <p class="section-subtitle">Everyone knows Netflix serves viewers with material recommendations automatically.</p>
+                        </div>
+                        <div class="section-content">
+                            <h3><i class="fas fa-brain"></i> How it Works:</h3>
+                            <ul>
+                                <li><strong>Collective Filtering:</strong> The system identifies similar users through showing recommendations. It also uses mechanisms of machine learning to guess what you like to watch or show you related content.</li>
+                                <li><strong>Content-Based Filtering:</strong> Based on your history and genres.</li>
+                                <li><strong>AI Patterns:</strong> The system forecasts your preferences by analyzing AI patterns with data about your behavior.</li>
+                            </ul>
+
+                            <div class="highlight-box">
+                                <h4><i class="fas fa-lightbulb"></i> Example:</h4>
+                                <p>When you watch five stand-up shows or comedies Netflix suggests more comedy entertainment for you.</p>
+                            </div>
+
+                            <div class="info-box">
+                                <div class="info-icon">
+                                    <i class="fas fa-code"></i>
+                                </div>
+                                <div class="info-content">
+                                    <p><strong>Tech Used:</strong> Python, TensorFlow, Amazon SageMaker</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="smart-search-system" class="content-section">
+                    <div class="section-card">
+                        <div class="section-header">
+                            <div class="section-meta">
+                                <div class="step-badge">Step 6</div>
+                            </div>
+                            <h2 class="section-title">Smart Search System</h2>
+                            <p class="section-subtitle">It has a type-ahead search feature where suggestions begin to appear as you type, thus making it easier to search for movies/shows/genres.</p>
+                        </div>
+                        <div class="section-content">
+                            <h3><i class="fas fa-search"></i> Features:</h3>
+                            <ul>
+                                <li><strong>Autocomplete Suggestions</strong></li>
+                                <li><strong>Typo Tolerance:</strong> When entered as "Hary Poter" the system locates the correct match "Harry Potter"</li>
+                                <li><strong>Personalized Results:</strong> Your personal results are different from mine during the personalized ranking stage</li>
+                            </ul>
+
+                            <div class="info-box">
+                                <div class="info-icon">
+                                    <i class="fas fa-database"></i>
+                                </div>
+                                <div class="info-content">
+                                    <p><strong>Backend Tool:</strong> Elasticsearch</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="streaming-engine" class="content-section">
+                    <div class="section-card">
+                        <div class="section-header">
+                            <div class="section-meta">
+                                <div class="step-badge">Step 7</div>
+                            </div>
+                            <h2 class="section-title">Video Streaming Engine (Adaptive & Efficient)</h2>
+                            <p class="section-subtitle">When you press play the system takes several actions to deliver you an optimal streaming experience.</p>
+                        </div>
+                        <div class="section-content">
+                            <h3><i class="fas fa-play-circle"></i> Streaming Flow:</h3>
+                            <div class="code-block">
+1. Playback Request: Routed via Load Balancer
+2. Device Detection: Phone? Smart TV? Browser?
+3. Network Speed Detection: Slow Wi-Fi? 5G?
+4. Adaptive Bitrate Streaming: Changes video quality on-the-fly
+                            </div>
+
+                            <h3><i class="fas fa-video"></i> Video Versions:</h3>
+                            <ul>
+                                <li>240p to 4K</li>
+                                <li>Different formats: AV1, H.264, HEVC</li>
+                            </ul>
+
+                            <div class="highlight-box">
+                                <h4><i class="fas fa-magic"></i> Fun Fact:</h4>
+                                <p>Netflix has all different video copies of every program in multiple formats so it can show you the best version that matches your Internet connection.</p>
+                            </div>
+
+                            <p>This process is called <strong>transcoding</strong>. When video is uploaded, it is divided into smaller segments (chunks) and each segment will be transcoded in different formats (mp4, HEVC etc.,) and different resolutions (240p, 480p, 1080p, 4k etc.,).</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="open-connect" class="content-section">
+                    <div class="section-card">
+                        <div class="section-header">
+                            <div class="section-meta">
+                                <div class="step-badge">Step 8</div>
+                            </div>
+                            <h2 class="section-title">Open Connect – Netflix's Private CDN</h2>
+                            <p class="section-subtitle">Netflix maintains its own Content Delivery Network system.</p>
+                        </div>
+                        <div class="section-content">
+                            <h3><i class="fas fa-network-wired"></i> What Is Open Connect?</h3>
+                            <p>Netflix maintains its own Content Delivery Network system. The service installs private servers directly within internet service provider networks through Jio and Comcast platforms.</p>
+
+                            <h3><i class="fas fa-star"></i> Why It's Genius:</h3>
+                            <ul>
+                                <li>Reduces latency</li>
+                                <li>No need for third-party CDNs like Cloudflare or AWS CloudFront</li>
+                                <li>Caches most popular titles locally</li>
+                            </ul>
+
+                            <div class="highlight-box">
+                                <h4><i class="fas fa-pizza-slice"></i> Example:</h4>
+                                <p>The company prepares pizza locally rather than shipping it from outside your neighborhood.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="cloud-hosting" class="content-section">
+                    <div class="section-card">
+                        <div class="section-header">
+                            <div class="section-meta">
+                                <div class="step-badge">Step 9</div>
+                            </div>
+                            <h2 class="section-title">Cloud Hosting (AWS)</h2>
+                            <p class="section-subtitle">Netflix operates its entire network on cloud platforms using Amazon Web Services (AWS).</p>
+                        </div>
+                        <div class="section-content">
+                            <h3><i class="fab fa-aws"></i> Key AWS Services Used:</h3>
+                            <ul>
+                                <li><strong>EC2:</strong> Virtual machines</li>
+                                <li><strong>S3:</strong> Store media files</li>
+                                <li><strong>DynamoDB:</strong> NoSQL database</li>
+                                <li><strong>Elastic Load Balancer</strong></li>
+                                <li><strong>Auto Scaling</strong> for traffic spikes</li>
+                                <li><strong>CloudWatch</strong> for real-time monitoring</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="digital-rights-management" class="content-section">
+                    <div class="section-card">
+                        <div class="section-header">
+                            <div class="section-meta">
+                                <div class="step-badge">Step 10</div>
+                            </div>
+                            <h2 class="section-title">Digital Rights Management (DRM)</h2>
+                            <p class="section-subtitle">Since Netflix obtains content from licensed studios they need to stay protective of it.</p>
+                        </div>
+                        <div class="section-content">
+                            <h3><i class="fas fa-lock"></i> Why DRM Is Crucial:</h3>
+                            <p>Since Netflix obtains content from licensed studios they need to stay protective of it.</p>
+
+                            <h3><i class="fas fa-shield-alt"></i> Technologies Used:</h3>
+                            <ul>
+                                <li>HTTPS encryption</li>
+                                <li>Token-based playback access</li>
+                                <li><strong>DRM tools:</strong> Widevine (Google), FairPlay (Apple), PlayReady (Microsoft)</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="monitoring-chaos" class="content-section">
+                    <div class="section-card">
+                        <div class="section-header">
+                            <div class="section-meta">
+                                <div class="step-badge">Step 11</div>
+                            </div>
+                            <h2 class="section-title">Monitoring & Chaos Engineering</h2>
+                            <p class="section-subtitle">The public highly relies on Netflix due to its excellent service quality. Netflix make sure of it by:</p>
+                        </div>
+                        <div class="section-content">
+                            <h3><i class="fas fa-chart-line"></i> Monitoring Tools:</h3>
+                            <ul>
+                                <li><strong>Spinnaker:</strong> Continuous deployment</li>
+                                <li><strong>Atlas:</strong> Custom telemetry system</li>
+                                <li><strong>CloudWatch:</strong> AWS logs and alerts</li>
+                            </ul>
+
+                            <h3><i class="fas fa-bug"></i> Chaos Engineering:</h3>
+                            <p>Netflix performs intentional system failures through three methods:</p>
+                            <ul>
+                                <li><strong>Chaos Monkey</strong> (kills services randomly)</li>
+                                <li><strong>Latency Monkey</strong> (adds delays)</li>
+                                <li><strong>Conformity Monkey</strong> (checks configs)</li>
+                            </ul>
+
+                            <div class="highlight-box">
+                                <h4><i class="fas fa-question-circle"></i> Why?</h4>
+                                <p>So NOTHING crashes when the system is under actual stress.</p>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="tech-stack" class="content-section">
+                    <div class="section-card">
+                        <div class="section-header">
+                            <div class="section-meta">
+                                <div class="step-badge">Tech Stack</div>
+                            </div>
+                            <h2 class="section-title">Optional Technologies Used</h2>
+                            <p class="section-subtitle">Complete overview of Netflix's technology stack</p>
+                        </div>
+                        <div class="section-content">
+                            <div class="table-container">
+                                <table class="data-table">
+                                    <thead>
+                                        <tr>
+                                            <th>Feature</th>
+                                            <th>Tech Stack</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td><strong>Frontend</strong></td>
+                                            <td>React, JavaScript</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Backend</strong></td>
+                                            <td>Java, Kotlin</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Search</strong></td>
+                                            <td>Elasticsearch</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Recommendations</strong></td>
+                                            <td>Python, TensorFlow</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Deployment</strong></td>
+                                            <td>Docker, Kubernetes</td>
+                                        </tr>
+                                        <tr>
+                                            <td><strong>Video Protocols</strong></td>
+                                            <td>DASH, HLS</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section id="conclusion" class="content-section">
+                    <div class="section-card">
+                        <div class="section-header">
+                            <div class="section-meta">
+                                <div class="step-badge">Conclusion</div>
+                            </div>
+                            <h2 class="section-title">Why Netflix's System is Extraordinary</h2>
+                            <p class="section-subtitle">Therefore, Netflix is not just a streaming platform. It is a perfect example of how a fully integrated system is created.</p>
+                        </div>
+                        <div class="section-content">
+                            <ul>
+                                <li><strong>Scalable:</strong> Supports millions of users</li>
+                                <li><strong>Resilient:</strong> Survives system failures</li>
+                                <li><strong>Intelligent:</strong> AI-driven content recommendations</li>
+                                <li><strong>Efficient:</strong> Delivers high-quality video with low buffering</li>
+                                <li><strong>Safe:</strong> Guarantees the safeguard of all copyrighted content on the devices</li>
+                            </ul>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </div>
+
+        <section id="faqs" class="faq-section">
+            <div class="container">
+                <div class="faq-header">
+                    <h2 class="faq-title">FAQs About Netflix System Design</h2>
+                    <p class="faq-subtitle">Common questions about Netflix's architecture and implementation</p>
+                </div>
+                <div class="faq-container">
+                    <div class="faq-item">
+                        <div class="faq-question" onclick="toggleFAQ(this)">
+                            <h3>Q1. What programming languages does Netflix use?</h3>
+                            <div class="faq-toggle">+</div>
+                        </div>
+                        <div class="faq-answer">
+                            <p>The programming languages Netflix employs include Java Kotlin (backend) JavaScript & React (frontend) and Python for ML and AI models.</p>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <div class="faq-question" onclick="toggleFAQ(this)">
+                            <h3>Q2. How does Netflix recommend shows?</h3>
+                            <div class="faq-toggle">+</div>
+                        </div>
+                        <div class="faq-answer">
+                            <p>Netflix uses AI to recommend content through combinations of both collaborative filtering and content-based filtering approaches that analyze your viewing behavior.</p>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <div class="faq-question" onclick="toggleFAQ(this)">
+                            <h3>Q3. What is Netflix's Open Connect?</h3>
+                            <div class="faq-toggle">+</div>
+                        </div>
+                        <div class="faq-answer">
+                            <p>Through Open Connect Netflix operates its own content delivery network that installs servers next to users inside internet service provider networks in order to optimize speed and minimize delays.</p>
+                        </div>
+                    </div>
+
+                    <div class="faq-item">
+                        <div class="faq-question" onclick="toggleFAQ(this)">
+                            <h3>Q4. Does Netflix use AWS?</h3>
+                            <div class="faq-toggle">+</div>
+                        </div>
+                        <div class="faq-answer">
+                            <p>Netflix depends entirely on AWS for managing its complete operations from video storage to virtual servers and databases and monitoring tools.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <button id="backToTopBtn" title="Go to top">
+        <i class="fas fa-arrow-up"></i>
+    </button>
+
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-logo">Netflix System Design</div>
+                <!-- <p class="footer-text">Understanding the architecture behind the world's largest streaming platform</p> -->
+                <div class="footer-links">
+                    <a href="#overview-section">Overview</a>
+                    <a href="#high-level-architecture">Architecture</a>
+                    <a href="#microservices-section">Services</a>
+                    <a href="#streaming-engine">Streaming</a>
+                    <a href="#faqs">FAQs</a>
+                </div>
+                <p class="footer-copyright">&copy; 2025 GOWTHAMRAJ NETWORK. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Mobile menu toggle
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        const navLinks = document.getElementById('navLinks');
+        const header = document.getElementById('header');
+
+        mobileMenuBtn.addEventListener('click', () => {
+            navLinks.classList.toggle('active');
+            const hamburger = mobileMenuBtn.querySelector('.hamburger');
+            hamburger.classList.toggle('active');
+        });
+
+        // Header scroll effect
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 100) {
+                header.classList.add('scrolled');
+            } else {
+                header.classList.remove('scrolled');
+            }
+            toggleBackToTopButton(); // Call back-to-top function on scroll
+        });
+
+        // Progress bar
+        window.addEventListener('scroll', () => {
+            const scrollTop = document.documentElement.scrollTop;
+            const scrollHeight = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+            const scrollPercent = (scrollTop / scrollHeight) * 100;
+            document.getElementById('progressBar').style.width = scrollPercent + '%';
+        });
+
+        // Smooth scrolling
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                const target = document.querySelector(this.getAttribute('href'));
+                if (target) {
+                    // Adjust scroll position slightly for fixed header
+                    const headerOffset = header.offsetHeight; 
+                    const elementPosition = target.getBoundingClientRect().top + window.pageYOffset;
+                    window.scrollTo({
+                        top: elementPosition - headerOffset - 20, // Add some padding
+                        behavior: 'smooth'
+                    });
+                }
+                navLinks.classList.remove('active');
+                mobileMenuBtn.querySelector('.hamburger').classList.remove('active'); // Close hamburger menu
+            });
+        });
+
+        // Intersection Observer for content section animations
+        const observerOptions = {
+            threshold: 0.1,
+            rootMargin: '0px 0px -50px 0px'
+        };
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('revealed'); // Changed from 'visible' to 'revealed'
+                } else {
+                    // Optional: remove 'revealed' class when out of view if you want repeat animation
+                    // entry.target.classList.remove('revealed'); 
+                }
+            });
+        }, observerOptions);
+
+        // Observe all content sections and TOC section
+        document.querySelectorAll('.content-section, .toc-section').forEach(section => {
+            observer.observe(section);
+        });
+
+        // FAQ functionality
+        function toggleFAQ(element) {
+            const faqItem = element.parentElement;
+            const answer = element.nextElementSibling;
+            const toggle = element.querySelector('.faq-toggle');
+            
+            // Close all other FAQs
+            document.querySelectorAll('.faq-item').forEach(item => {
+                if (item !== faqItem && item.classList.contains('active')) {
+                    item.classList.remove('active');
+                    item.querySelector('.faq-answer').classList.remove('active');
+                    item.querySelector('.faq-toggle').textContent = '+';
+                }
+            });
+            
+            // Toggle current FAQ
+            if (faqItem.classList.contains('active')) {
+                faqItem.classList.remove('active');
+                answer.classList.remove('active');
+                toggle.textContent = '+';
+            } else {
+                faqItem.classList.add('active');
+                answer.classList.add('active');
+                toggle.textContent = '−';
+            }
+        }
+
+        // Active navigation highlighting for Header and TOC
+        function updateActiveElements() {
+            const sections = document.querySelectorAll('section[id]');
+            const headerNavLinks = document.querySelectorAll('.nav-link');
+            const tocItems = document.querySelectorAll('.toc-item');
+            
+            let currentSectionId = '';
+            sections.forEach(section => {
+                // Get the top of the section relative to the viewport
+                const sectionTop = section.getBoundingClientRect().top;
+                // Get the height of the section
+                const sectionHeight = section.clientHeight;
+                
+                // Adjust for fixed header height
+                const offset = header.offsetHeight + 50; // 50px buffer
+                
+                if (sectionTop <= offset && sectionTop + sectionHeight > offset) {
+                    currentSectionId = section.getAttribute('id');
+                }
+            });
+
+            // Update Header Nav Links
+            headerNavLinks.forEach(link => {
+                link.classList.remove('active');
+                if (link.getAttribute('href') === `#${currentSectionId}`) {
+                    link.classList.add('active');
+                }
+            });
+
+            // Update TOC Items
+            tocItems.forEach(item => {
+                item.classList.remove('active');
+                if (item.getAttribute('href') === `#${currentSectionId}`) {
+                    item.classList.add('active');
+                }
+            });
+        }
+
+        window.addEventListener('scroll', updateActiveElements);
+
+        // Initialize on load
+        window.addEventListener('load', () => {
+            updateActiveElements();
+            // Ensure content sections are observed after load
+            document.querySelectorAll('.content-section, .toc-section').forEach(section => {
+                observer.observe(section);
+            });
+        });
+
+        // Back to Top Button Logic
+        const backToTopBtn = document.getElementById('backToTopBtn');
+
+        function toggleBackToTopButton() {
+            if (window.scrollY > 300) { // Show button after scrolling 300px
+                backToTopBtn.style.display = 'flex';
+                backToTopBtn.style.opacity = '1';
+                backToTopBtn.style.transform = 'translateY(0) scale(1)';
+            } else {
+                backToTopBtn.style.opacity = '0';
+                backToTopBtn.style.transform = 'translateY(20px) scale(0.9)';
+                setTimeout(() => { // Hide button completely after animation
+                    backToTopBtn.style.display = 'none';
+                }, 300);
+            }
+        }
+
+        backToTopBtn.addEventListener('click', () => {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        });
+
+        // Initial check for back to top button visibility
+        window.addEventListener('DOMContentLoaded', toggleBackToTopButton);
+    </script>
+</body>
+</html>
